@@ -31,6 +31,18 @@ M.sections = {
     { key = '<leader>sd',      desc = 'Search diagnostics' },
     { key = '<leader>sr',      desc = 'Resume last search' },
   }},
+  { title = 'Completion (blink)', items = {
+    { key = '<Tab>  <S-Tab>', desc = 'Select next / prev item' },
+    { key = '<CR>',           desc = 'Accept item' },
+    { key = '<C-space>',      desc = 'Open / close menu' },
+    { key = '<C-e>',          desc = 'Dismiss menu' },
+    { key = '<C-b>  <C-f>',  desc = 'Scroll docs up / down' },
+  }},
+  { title = 'Text Objects (mini.ai)', items = {
+    { key = 'i  a',            desc = 'Inside / around (prefix)' },
+    { key = '( [ { < " t b q', desc = 'Paren bracket quote tag' },
+    { key = 'in  il',          desc = 'Next / last of same type' },
+  }},
   { title = 'Git', items = {
     { key = ']h  [h',         desc = 'Next / prev hunk' },
     { key = '<leader>hs',     desc = 'Stage hunk' },
