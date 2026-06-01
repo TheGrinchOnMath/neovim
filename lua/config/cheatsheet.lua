@@ -229,6 +229,149 @@ function M.toggle()
   end
 end
 
+-- ── NUI floating window (M.toggle_nui) ──────────────────────────────────────
+-- Same data as M.toggle() but rendered with nui.nvim:
+--   • nui.Popup  → bordered floating window (no manual nvim_open_win)
+--   • nui.Line / nui.Text → highlight-aware lines (no byte-offset arithmetic)
+--   • ' │ ' separator instead of the ASCII '  |  ' gap
+-- Falls back to M.toggle() if nui.nvim is not present.
+
+local nui_state = { popup = nil }
+
+function M.toggle_nui()
+  -- Close if already open
+  if nui_state.popup then
+    if nui_state.popup.winid and vim.api.nvim_win_is_valid(nui_state.popup.winid) then
+      nui_state.popup:unmount()
+    end
+    nui_state.popup = nil
+    return
+  end
+
+  local ok, Popup = pcall(require, 'nui.popup')
+  if not ok then
+    vim.notify('nui.nvim not available — using fallback', vim.log.levels.WARN)
+    M.toggle()
+    return
+  end
+  local Line = require 'nui.line'
+  local Text = require 'nui.text'
+
+  vim.api.nvim_set_hl(0, 'CheatsheetTitle',   { link = 'Title',    default = true })
+  vim.api.nvim_set_hl(0, 'CheatsheetSep',     { link = 'Comment',  default = true })
+  vim.api.nvim_set_hl(0, 'CheatsheetSection', { link = 'Function', default = true })
+  vim.api.nvim_set_hl(0, 'CheatsheetKey',     { link = 'Keyword',  default = true })
+  vim.api.nvim_set_hl(0, 'CheatsheetDesc',    { link = 'Comment',  default = true })
+
+  local SEP_W   = 3                       -- ' │ '
+  local WIN_W   = 2 * SEC_W + SEP_W      -- 91
+  local max_desc = SEC_W - 3 - KEY_W - 1 -- 24
+
+  -- ── Build nui.Line list ──────────────────────────────────────────────────
+
+  local nui_lines = {}
+
+  -- Header (centred, full-width highlight)
+  local hdr     = 'GRONK.NVIM  --  KEYBIND CHEATSHEET'
+  local hdr_pad = math.floor((WIN_W - #hdr) / 2)
+  local hdr_line = Line()
+  hdr_line:append(Text(string.rep(' ', hdr_pad),               'Normal'))
+  hdr_line:append(Text(hdr,                                    'CheatsheetTitle'))
+  hdr_line:append(Text(string.rep(' ', WIN_W - hdr_pad - #hdr),'Normal'))
+  table.insert(nui_lines, hdr_line)
+
+  -- Divider (─ is multi-byte; nui.Text handles display-width correctly)
+  local div_line = Line()
+  div_line:append(Text(string.rep('─', WIN_W), 'CheatsheetSep'))
+  table.insert(nui_lines, div_line)
+
+  -- Append one column's worth of content to an existing Line
+  local function append_col(line, row)
+    if not row or row.type == 'blank' then
+      line:append(Text(string.rep(' ', SEC_W), 'Normal'))
+    elseif row.type == 'title' then
+      line:append(Text(rpad('  ' .. row.text, SEC_W), 'CheatsheetSection'))
+    else -- item
+      line:append(Text('   ',                    'Normal'))
+      line:append(Text(rpad(row.key,  KEY_W),    'CheatsheetKey'))
+      line:append(Text(' ',                      'Normal'))
+      line:append(Text(rpad(row.desc, max_desc), 'CheatsheetDesc'))
+    end
+  end
+
+  -- Flatten a section into a list of simple row tables
+  local function sec_rows(sec)
+    if not sec then return {} end
+    local rows = {}
+    table.insert(rows, { type = 'title', text = sec.title })
+    for _, item in ipairs(sec.items) do
+      table.insert(rows, { type = 'item', key = item.key, desc = item.desc:sub(1, max_desc) })
+    end
+    table.insert(rows, { type = 'blank' })
+    return rows
+  end
+
+  for i = 1, #M.sections, 2 do
+    local left_rows  = sec_rows(M.sections[i])
+    local right_rows = sec_rows(M.sections[i + 1])
+    local pair_h = math.max(#left_rows, #right_rows)
+    for j = 1, pair_h do
+      local line = Line()
+      append_col(line, left_rows[j])
+      line:append(Text(' │ ', 'CheatsheetSep'))
+      append_col(line, right_rows[j])
+      table.insert(nui_lines, line)
+    end
+  end
+
+  -- ── Mount popup ──────────────────────────────────────────────────────────
+
+  local win_h = math.min(#nui_lines, vim.o.lines - 6)
+
+  local popup = Popup {
+    position = '50%',
+    size     = { width = WIN_W, height = win_h },
+    border   = {
+      style = 'rounded',
+      text  = { top = '  Cheatsheet ', top_align = 'center' },
+    },
+    buf_options = { modifiable = true, readonly = false, filetype = 'cheatsheet' },
+    win_options = { cursorline = false, wrap = false, scrolloff = 0 },
+  }
+
+  popup:mount()
+  nui_state.popup = popup
+
+  -- Pre-fill so Line:render has rows to write into
+  vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false,
+    vim.tbl_map(function() return '' end, nui_lines))
+
+  local ns = vim.api.nvim_create_namespace 'cheatsheet_nui'
+  for i, nline in ipairs(nui_lines) do
+    nline:render(popup.bufnr, ns, i)
+  end
+
+  vim.bo[popup.bufnr].modifiable = false
+
+  local function close()
+    if nui_state.popup then
+      if nui_state.popup.winid and vim.api.nvim_win_is_valid(nui_state.popup.winid) then
+        nui_state.popup:unmount()
+      end
+      nui_state.popup = nil
+    end
+  end
+
+  -- Clear state if the window is closed via :q or wincmd
+  popup:on(require('nui.utils.autocmd').event.BufWipeout, function()
+    nui_state.popup = nil
+  end)
+
+  for _, key in ipairs { 'q', '<Esc>', '<leader>??' } do
+    popup:map('n', key, close, { noremap = true, silent = true, nowait = true })
+  end
+end
+
 -- ── Telescope picker (M.picker) ───────────────────────────────────────────────
 -- Fuzzy-search all keybinds by key, description or section.
 -- <Enter>  → notify with the binding as a reminder

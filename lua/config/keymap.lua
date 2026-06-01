@@ -53,5 +53,9 @@ if not vim.g.vscode then
   vim.keymap.set('n', '<leader>?', function()
     require('config.cheatsheet').picker()
   end, { desc = 'Search keybinds' })
+
+  vim.keymap.set('n', '<leader>??', function()
+    require('config.cheatsheet').toggle_nui()
+  end, { desc = 'Cheatsheet (nui)' })
 end
 
