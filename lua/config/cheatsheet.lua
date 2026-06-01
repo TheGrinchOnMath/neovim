@@ -7,7 +7,7 @@ local M = {}
 -- Layout constants (all content is ASCII → byte width == display width)
 local SEC_W = 44       -- each section column, in display cols
 local GAP   = '  |  ' -- column divider, pure ASCII → #GAP == display width == 5
-local KEY_W = 19       -- key field width within a section
+local KEY_W = 16       -- key field width within a section (longest key is 16 chars)
 
 -- ── Section data ─────────────────────────────────────────────────────────────
 -- Exposed as M.sections so alpha and the telescope picker can consume it.
@@ -84,7 +84,7 @@ M.sections = {
   { title = 'Misc', items = {
     { key = '<leader>nm',       desc = 'Toggle minimap' },
     { key = '<leader>nl / nh',  desc = 'Noice last / history' },
-    { key = 'F1',               desc = 'Cheatsheet (toggle window)' },
+    { key = 'F1',               desc = 'Toggle cheatsheet window' },
     { key = '<leader>?',        desc = 'Search keybinds (picker)' },
   }},
 }
@@ -123,17 +123,19 @@ local function build_content()
       text = rpad('  ' .. sec.title, SEC_W),
       hls  = { { 0, -1, 'CheatsheetSection' } },
     })
+    local max_desc = SEC_W - 3 - KEY_W - 1  -- = 24; guard against future overflow
     for _, item in ipairs(sec.items) do
       local indent   = 3
+      local desc     = item.desc:sub(1, max_desc)
       local row_text = rpad(
-        string.rep(' ', indent) .. rpad(item.key, KEY_W) .. ' ' .. item.desc,
+        string.rep(' ', indent) .. rpad(item.key, KEY_W) .. ' ' .. desc,
         SEC_W
       )
       table.insert(rows, {
         text = row_text,
         hls  = {
           { indent, indent + #item.key, 'CheatsheetKey' },
-          { indent + KEY_W + 1, indent + KEY_W + 1 + #item.desc, 'CheatsheetDesc' },
+          { indent + KEY_W + 1, indent + KEY_W + 1 + #desc, 'CheatsheetDesc' },
         },
       })
     end
