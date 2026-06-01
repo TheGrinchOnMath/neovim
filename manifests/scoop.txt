@@ -1,0 +1,41 @@
+# Scoop packages — Windows
+# Install Scoop first: https://scoop.sh
+# Add buckets:
+#   scoop bucket add extras
+#   scoop bucket add nerd-fonts
+#   scoop bucket add versions
+
+# Core editor
+neovim
+
+# Version control
+git
+
+# Search / file tools (used by telescope)
+ripgrep
+fd
+
+# Language runtimes
+go
+nodejs-lts
+python
+rustup                    # run `rustup component add rust-analyzer rustfmt clippy` after
+
+# Build tools (telescope-fzf-native)
+make
+gcc                       # from mingw bucket: scoop bucket add main; scoop install gcc
+
+# Font — JetBrains Mono Nerd Font
+# scoop bucket add nerd-fonts
+JetBrainsMono-NF
+
+# Terminal utilities
+# tmux is available via WSL; on Windows native use Windows Terminal tabs
+# optional: oh-my-posh for a styled prompt
+oh-my-posh
+
+# ── Installed automatically by Mason inside neovim ──────────────────
+# LSP servers:   lua-language-server, rust-analyzer (via rustup), gopls,
+#                basedpyright, bash-language-server, yaml-language-server,
+#                taplo, marksman, powershell-editor-services
+# Formatters:    stylua, ruff, goimports, shfmt, prettier

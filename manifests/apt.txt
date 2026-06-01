@@ -1,0 +1,45 @@
+# APT packages — Ubuntu/Debian
+# Add the unstable PPA first for a recent neovim build:
+#   sudo add-apt-repository ppa:neovim-ppa/unstable
+#   sudo apt update
+
+# Core
+neovim
+git
+make
+curl
+unzip
+wget
+xclip          # clipboard support (X11); use xsel as alternative
+
+# Search / file tools (used by telescope)
+ripgrep
+fd-find        # binary is 'fdfind' on Debian/Ubuntu; symlink: ln -s $(which fdfind) ~/.local/bin/fd
+
+# Language runtimes
+python3
+python3-pip
+python3-venv
+golang-go      # or install via https://go.dev/dl/ for a newer release
+nodejs
+npm
+
+# Build tools (telescope-fzf-native, treesitter parsers)
+build-essential
+gcc
+
+# Optional: tmux (for tmux workflow)
+tmux
+
+# Optional: JetBrains Mono Nerd Font
+# Download from https://www.nerdfonts.com/font-downloads and install to ~/.local/share/fonts/
+
+# ── Installed automatically by Mason inside neovim ──────────────────
+# LSP servers:   lua-language-server, rust-analyzer, gopls,
+#                basedpyright, bash-language-server, yaml-language-server,
+#                taplo, marksman, powershell-editor-services
+# Formatters:    stylua, ruff, goimports, shfmt, prettier
+#
+# Rust toolchain (rust_analyzer, rustfmt) — install via rustup, not apt:
+#   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+#   rustup component add rust-analyzer rustfmt clippy

@@ -1,0 +1,47 @@
+# Winget packages — Windows 10/11
+# Run from an elevated PowerShell prompt:
+#   winget import --import-file winget.json
+# Or install individually:
+#   winget install <Id>
+
+# Core editor
+Neovim.Neovim
+
+# Version control
+Git.Git
+
+# Search / file tools (used by telescope)
+BurntSushi.ripgrep.MSVC
+sharkdp.fd
+
+# Language runtimes
+GoLang.Go
+OpenJS.NodeJS.LTS
+Python.Python.3.12
+Rustlang.Rustup           # installs rustup; run `rustup component add rust-analyzer rustfmt clippy` after
+
+# Build tools (telescope-fzf-native needs make + a C compiler)
+# Option A — LLVM/clang (lighter):
+LLVM.LLVM
+# Option B — Visual Studio Build Tools (heavier, also covers MSVC):
+# Microsoft.VisualStudio.2022.BuildTools
+
+# make (GNU make via GnuWin32 or choco; or use the VS devenv)
+GnuWin32.Make
+
+# Terminal / shell
+Microsoft.WindowsTerminal
+JanDeDobbeleer.OhMyPosh   # optional, for a styled prompt
+
+# Fonts — JetBrains Mono Nerd Font
+# Winget doesn't have font packages; install from:
+#   https://www.nerdfonts.com/font-downloads
+# Or via Scoop (see scoop.txt): scoop install nerd-fonts/JetBrainsMono-NF
+
+# tmux — not natively available via winget; use WSL or Windows Terminal tabs instead
+
+# ── Installed automatically by Mason inside neovim ──────────────────
+# LSP servers:   lua-language-server, rust-analyzer (via rustup), gopls,
+#                basedpyright, bash-language-server, yaml-language-server,
+#                taplo, marksman, powershell-editor-services
+# Formatters:    stylua, ruff, goimports, shfmt, prettier

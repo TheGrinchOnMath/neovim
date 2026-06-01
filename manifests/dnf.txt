@@ -1,0 +1,42 @@
+# DNF packages — Fedora / RHEL (with EPEL for RHEL)
+# For RHEL/CentOS enable EPEL first: sudo dnf install epel-release
+
+# Core
+neovim
+git
+make
+curl
+unzip
+wget
+xclip          # clipboard support (X11)
+
+# Search / file tools (used by telescope)
+ripgrep
+fd-find
+
+# Language runtimes
+python3
+python3-pip
+golang
+nodejs
+npm
+
+# Build tools (treesitter parsers, telescope-fzf-native)
+gcc
+g++
+
+# Optional: tmux
+tmux
+
+# Optional: JetBrains Mono Nerd Font
+# Download from https://www.nerdfonts.com/font-downloads and install to ~/.local/share/fonts/
+
+# ── Installed automatically by Mason inside neovim ──────────────────
+# LSP servers:   lua-language-server, rust-analyzer, gopls,
+#                basedpyright, bash-language-server, yaml-language-server,
+#                taplo, marksman, powershell-editor-services
+# Formatters:    stylua, ruff, goimports, shfmt, prettier
+#
+# Rust toolchain — install via rustup, not dnf:
+#   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+#   rustup component add rust-analyzer rustfmt clippy
