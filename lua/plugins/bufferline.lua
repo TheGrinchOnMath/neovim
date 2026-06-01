@@ -34,16 +34,20 @@ return {
       separator_style = 'slant',
       always_show_bufferline = true,
     },
-    -- Match the fill (gaps around/between tabs) to the Normal background
-    -- so slant separators don't show a white/mismatched edge
+    -- Blend slant separator teeth into the fill background (Normal bg).
+    -- `tab_separator*` only applies in tab mode; in buffer mode the groups
+    -- are `separator`, `separator_selected`, and `separator_visible`.
     highlights = {
       fill = {
         bg = { attribute = 'bg', highlight = 'Normal' },
       },
-      tab_separator = {
+      separator = {
         fg = { attribute = 'bg', highlight = 'Normal' },
       },
-      tab_separator_selected = {
+      separator_selected = {
+        fg = { attribute = 'bg', highlight = 'Normal' },
+      },
+      separator_visible = {
         fg = { attribute = 'bg', highlight = 'Normal' },
       },
     },
