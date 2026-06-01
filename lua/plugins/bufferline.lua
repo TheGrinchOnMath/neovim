@@ -34,5 +34,18 @@ return {
       separator_style = 'slant',
       always_show_bufferline = true,
     },
+    -- Match the fill (gaps around/between tabs) to the Normal background
+    -- so slant separators don't show a white/mismatched edge
+    highlights = {
+      fill = {
+        bg = { attribute = 'bg', highlight = 'Normal' },
+      },
+      tab_separator = {
+        fg = { attribute = 'bg', highlight = 'Normal' },
+      },
+      tab_separator_selected = {
+        fg = { attribute = 'bg', highlight = 'Normal' },
+      },
+    },
   },
 }
