@@ -1,8 +1,15 @@
+-- https://github.com/nvim-treesitter/nvim-treesitter
+-- Requires nvim 0.12+ and tree-sitter-cli in PATH.
+-- The plugin manages parser/query installation only;
+-- highlighting and indent are handled by nvim's built-in treesitter engine.
 return {
   'nvim-treesitter/nvim-treesitter',
+  lazy = false, -- plugin explicitly does not support lazy-loading
   build = ':TSUpdate',
   config = function()
-    local parsers = {
+    -- New API: setup() only accepts install_dir; default is fine.
+    -- Parser installation is via .install(), which is async.
+    require('nvim-treesitter').install {
       'bash',
       'diff',
       'gitcommit',
@@ -23,27 +30,5 @@ return {
       'vimdoc',
       'yaml',
     }
-
-    -- nvim-treesitter moved away from the 'configs' sub-module in its rewrite.
-    -- Try the legacy API first; fall back to the new one.
-    local ok, configs = pcall(require, 'nvim-treesitter.configs')
-    if ok then
-      configs.setup {
-        ensure_installed = parsers,
-        auto_install = true,
-        highlight = {
-          enable = true,
-          additional_vim_regex_highlighting = { 'ruby' },
-        },
-        indent = { enable = true, disable = { 'ruby' } },
-      }
-    else
-      -- Post-rewrite API: highlighting is handled by neovim's built-in
-      -- treesitter integration; this just manages parser installation.
-      require('nvim-treesitter').setup {
-        ensure_installed = parsers,
-        auto_install = true,
-      }
-    end
   end,
 }
