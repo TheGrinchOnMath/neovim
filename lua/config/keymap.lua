@@ -44,10 +44,14 @@ vim.keymap.set('n', '<C-Right>', ':vertical resize +2<CR>', opts)
 vim.keymap.set({ 'n', 'x' }, 's', '<Nop>')
 vim.keymap.set({ 'n', 'x' }, 'S', '<Nop>')
 
--- F1: floating keybind cheatsheet (standard help key; not bound in vscode-neovim)
+-- F1 / <leader>?: cheatsheet (not bound in vscode-neovim)
 if not vim.g.vscode then
   vim.keymap.set('n', '<F1>', function()
     require('config.cheatsheet').toggle()
-  end, { desc = 'Toggle keybind cheatsheet' })
+  end, { desc = 'Cheatsheet (floating window)' })
+
+  vim.keymap.set('n', '<leader>?', function()
+    require('config.cheatsheet').picker()
+  end, { desc = 'Search keybinds' })
 end
 
