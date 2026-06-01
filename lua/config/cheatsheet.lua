@@ -1,16 +1,12 @@
 -- Floating keybind cheatsheet + Telescope picker
---   M.toggle()  → floating window   (bound to <F1>)
---   M.picker()  → telescope search  (bound to <leader>?)
+--   M.toggle()      → plain floating window  (bound to <F1>)
+--   M.toggle_nui()  → nui.Popup window       (bound to <leader>??)
+--   M.picker()      → Telescope search       (bound to <leader>?)
 
 local M = {}
 
--- Layout constants (all content is ASCII → byte width == display width)
-local SEC_W = 44       -- each section column, in display cols
-local GAP   = '  |  ' -- column divider, pure ASCII → #GAP == display width == 5
-local KEY_W = 16       -- key field width within a section (longest key is 16 chars)
-
 -- ── Section data ─────────────────────────────────────────────────────────────
--- Exposed as M.sections so alpha and the telescope picker can consume it.
+-- Exposed so alpha.lua and the Telescope picker can consume it.
 -- Keep in sync with actual plugin keymaps.
 M.sections = {
   { title = 'Navigation', items = {
@@ -89,87 +85,155 @@ M.sections = {
   }},
 }
 
--- ── Floating window (M.toggle) ───────────────────────────────────────────────
+-- ── Layout ───────────────────────────────────────────────────────────────────
+-- Content-driven minimums (derived from actual section data above).
+--   Longest key  = 'gcc  gc (visual)' = 16 chars
+--   Longest desc = 'Comment line / selection' = 24 chars
+local INDENT    = 3
+local MIN_KEY_W = 16
+local MIN_DESC  = 24
+local MIN_SEC_W = INDENT + MIN_KEY_W + 1 + MIN_DESC  -- 44
+local GAP       = ' │ '   -- 5 bytes (space + 3-byte │ + space), 3 display cols
+local GAP_W     = 3       -- display width of GAP (avoids calling strdisplaywidth every time)
+local BORDER_W  = 2       -- rounded border adds 1 col on each side
+
+-- Returns a layout table computed from the current terminal width.
+-- Called at open-time so the popup always fits the actual window.
+local function compute_layout()
+  local term_w = vim.o.columns
+  -- Two-column needs: 2×content + gap + border ≥ terminal width
+  if term_w >= 2 * MIN_SEC_W + GAP_W + BORDER_W then
+    return {
+      two_col  = true,
+      sec_w    = MIN_SEC_W,             -- 44 — content cols per section
+      key_w    = MIN_KEY_W,             -- 16
+      max_desc = MIN_DESC,              -- 24
+      win_w    = 2 * MIN_SEC_W + GAP_W, -- 91 display cols (popup content width)
+    }
+  end
+  -- Single column: use all available space down to the minimum
+  local sec_w    = math.max(term_w - BORDER_W, MIN_SEC_W)
+  local max_desc = math.max(sec_w - INDENT - MIN_KEY_W - 1, 1)
+  return {
+    two_col  = false,
+    sec_w    = sec_w,
+    key_w    = MIN_KEY_W,
+    max_desc = max_desc,
+    win_w    = sec_w,
+  }
+end
+
+-- ── Content builder ──────────────────────────────────────────────────────────
+-- Returns { lines, hls } where:
+--   lines  = list of strings ready for nvim_buf_set_lines
+--   hls    = list of { lnum, byte_start, byte_end, hl_group }
+-- All content (keys, descs, padding) is ASCII so byte == display col everywhere
+-- except inside the GAP string itself (which contains the multi-byte │).
+-- nvim_buf_add_highlight uses byte offsets; byte positions here are correct.
 
 local function rpad(s, w)
   local dw = vim.fn.strdisplaywidth(s)
   return dw >= w and s or (s .. string.rep(' ', w - dw))
 end
 
-local function build_content()
-  local sections = M.sections
+local function build_content(lo)
   local lines = {}
-  local hls   = {} -- { lnum, byte_start, byte_end, hl_group }
+  local hls   = {}
 
   local function hl(lnum, bs, be, group)
     table.insert(hls, { lnum, bs, be, group })
   end
 
-  local WIN_W = 2 * SEC_W + #GAP
-
   -- Header
   local hdr     = 'GRONK.NVIM  --  KEYBIND CHEATSHEET'
-  local hdr_col = math.floor((WIN_W - #hdr) / 2)
-  table.insert(lines, rpad(string.rep(' ', hdr_col) .. hdr, WIN_W))
+  local hdr_col = math.floor((lo.win_w - #hdr) / 2)
+  table.insert(lines, rpad(string.rep(' ', hdr_col) .. hdr, lo.win_w))
   hl(0, hdr_col, hdr_col + #hdr, 'CheatsheetTitle')
 
-  -- Divider (─ = 3 bytes / 1 display col; -1 = end of line)
-  table.insert(lines, string.rep('─', WIN_W))
+  -- Divider — ─ is 3 bytes / 1 display col; highlight end -1 means end of line
+  table.insert(lines, string.rep('─', lo.win_w))
   hl(1, 0, -1, 'CheatsheetSep')
 
-  local function render_sec(sec)
+  -- Build rows for one section: { text, hls = {{bs, be, group}, ...} }
+  local function sec_rows(sec)
+    if not sec then return {} end
     local rows = {}
+    -- Title row
     table.insert(rows, {
-      text = rpad('  ' .. sec.title, SEC_W),
+      text = rpad('  ' .. sec.title, lo.sec_w),
       hls  = { { 0, -1, 'CheatsheetSection' } },
     })
-    local max_desc = SEC_W - 3 - KEY_W - 1  -- = 24; guard against future overflow
+    -- Item rows
     for _, item in ipairs(sec.items) do
-      local indent   = 3
-      local desc     = item.desc:sub(1, max_desc)
-      local row_text = rpad(
-        string.rep(' ', indent) .. rpad(item.key, KEY_W) .. ' ' .. desc,
-        SEC_W
-      )
+      local desc = item.desc:sub(1, lo.max_desc)
       table.insert(rows, {
-        text = row_text,
+        text = rpad(string.rep(' ', INDENT) .. rpad(item.key, lo.key_w) .. ' ' .. desc, lo.sec_w),
         hls  = {
-          { indent, indent + #item.key, 'CheatsheetKey' },
-          { indent + KEY_W + 1, indent + KEY_W + 1 + #desc, 'CheatsheetDesc' },
+          { INDENT,                         INDENT + #item.key,                     'CheatsheetKey'  },
+          { INDENT + lo.key_w + 1,          INDENT + lo.key_w + 1 + #desc,          'CheatsheetDesc' },
         },
       })
     end
-    table.insert(rows, { text = rpad('', SEC_W), hls = {} })
+    -- Blank separator
+    table.insert(rows, { text = rpad('', lo.sec_w), hls = {} })
     return rows
   end
 
-  local empty_row = { text = rpad('', SEC_W), hls = {} }
-  local right_off = SEC_W + #GAP
+  local empty = { text = rpad('', lo.sec_w), hls = {} }
 
-  for i = 1, #sections, 2 do
-    local left    = render_sec(sections[i])
-    local right   = sections[i + 1] and render_sec(sections[i + 1]) or {}
-    local pair_h  = math.max(#left, #right)
+  if lo.two_col then
+    -- right_off: byte offset to the start of the right column.
+    -- sec_w is ASCII so sec_w bytes = sec_w display cols.
+    -- #GAP = 5 bytes (' │ ' = 1 + 3 + 1).
+    local right_off = lo.sec_w + #GAP
 
-    for j = 1, pair_h do
-      local l    = left[j]  or empty_row
-      local r    = right[j] or empty_row
-      local lnum = #lines
-      table.insert(lines, l.text .. GAP .. r.text)
+    for i = 1, #M.sections, 2 do
+      local left  = sec_rows(M.sections[i])
+      local right = sec_rows(M.sections[i + 1])
+      local ph    = math.max(#left, #right)
 
-      for _, lh in ipairs(l.hls) do
-        local be = lh[2] == -1 and SEC_W or lh[2]
-        hl(lnum, lh[1], be, lh[3])
+      for j = 1, ph do
+        local l    = left[j]  or empty
+        local r    = right[j] or empty
+        local lnum = #lines
+        table.insert(lines, l.text .. GAP .. r.text)
+
+        for _, lh in ipairs(l.hls) do
+          hl(lnum, lh[1], lh[2] == -1 and lo.sec_w or lh[2], lh[3])
+        end
+        -- Highlight the │ separator (bytes sec_w to sec_w + #GAP)
+        hl(lnum, lo.sec_w, lo.sec_w + #GAP, 'CheatsheetSep')
+        for _, rh in ipairs(r.hls) do
+          hl(lnum, right_off + rh[1],
+            rh[2] == -1 and right_off + lo.sec_w or right_off + rh[2], rh[3])
+        end
       end
-      for _, rh in ipairs(r.hls) do
-        local be = rh[2] == -1 and right_off + SEC_W or right_off + rh[2]
-        hl(lnum, right_off + rh[1], be, rh[3])
+    end
+  else
+    -- Single column: stack sections vertically
+    for _, sec in ipairs(M.sections) do
+      for _, row in ipairs(sec_rows(sec)) do
+        local lnum = #lines
+        table.insert(lines, row.text)
+        for _, h in ipairs(row.hls) do
+          hl(lnum, h[1], h[2] == -1 and lo.sec_w or h[2], h[3])
+        end
       end
     end
   end
 
-  return lines, hls, WIN_W
+  return lines, hls
 end
+
+local function set_highlights()
+  vim.api.nvim_set_hl(0, 'CheatsheetTitle',   { link = 'Title',    default = true })
+  vim.api.nvim_set_hl(0, 'CheatsheetSep',     { link = 'Comment',  default = true })
+  vim.api.nvim_set_hl(0, 'CheatsheetSection', { link = 'Function', default = true })
+  vim.api.nvim_set_hl(0, 'CheatsheetKey',     { link = 'Keyword',  default = true })
+  vim.api.nvim_set_hl(0, 'CheatsheetDesc',    { link = 'Comment',  default = true })
+end
+
+-- ── M.toggle — plain floating window (F1) ────────────────────────────────────
 
 local state = { win = nil }
 
@@ -180,31 +244,26 @@ function M.toggle()
     return
   end
 
-  local lines, hls, win_w = build_content()
+  local lo           = compute_layout()
+  local lines, hls   = build_content(lo)
+  set_highlights()
 
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  for _, h in ipairs(hls) do
+    vim.api.nvim_buf_add_highlight(buf, -1, h[4], h[1], h[2], h[3])
+  end
   vim.bo[buf].modifiable = false
   vim.bo[buf].bufhidden  = 'wipe'
   vim.bo[buf].filetype   = 'cheatsheet'
 
-  vim.api.nvim_set_hl(0, 'CheatsheetTitle',   { link = 'Title',    default = true })
-  vim.api.nvim_set_hl(0, 'CheatsheetSep',     { link = 'Comment',  default = true })
-  vim.api.nvim_set_hl(0, 'CheatsheetSection', { link = 'Function', default = true })
-  vim.api.nvim_set_hl(0, 'CheatsheetKey',     { link = 'Keyword',  default = true })
-  vim.api.nvim_set_hl(0, 'CheatsheetDesc',    { link = 'Comment',  default = true })
-
-  for _, h in ipairs(hls) do
-    vim.api.nvim_buf_add_highlight(buf, -1, h[4], h[1], h[2], h[3])
-  end
-
   local win_h = math.min(#lines, vim.o.lines - 6)
   local row   = math.max(0, math.floor((vim.o.lines   - win_h) / 2) - 1)
-  local col   = math.max(0, math.floor((vim.o.columns - win_w)  / 2))
+  local col   = math.max(0, math.floor((vim.o.columns - lo.win_w - BORDER_W) / 2))
 
   state.win = vim.api.nvim_open_win(buf, true, {
     relative  = 'editor',
-    width     = win_w,
+    width     = lo.win_w,
     height    = win_h,
     row       = row,
     col       = col,
@@ -213,7 +272,6 @@ function M.toggle()
     title     = '  Cheatsheet ',
     title_pos = 'center',
   })
-
   vim.wo[state.win].scrolloff  = 0
   vim.wo[state.win].cursorline = false
   vim.wo[state.win].wrap       = false
@@ -229,17 +287,14 @@ function M.toggle()
   end
 end
 
--- ── NUI floating window (M.toggle_nui) ──────────────────────────────────────
--- Same data as M.toggle() but rendered with nui.nvim:
---   • nui.Popup  → bordered floating window (no manual nvim_open_win)
---   • nui.Line / nui.Text → highlight-aware lines (no byte-offset arithmetic)
---   • ' │ ' separator instead of the ASCII '  |  ' gap
--- Falls back to M.toggle() if nui.nvim is not present.
+-- ── M.toggle_nui — nui.Popup window (<leader>??) ─────────────────────────────
+-- Uses the same build_content() / highlight approach as M.toggle().
+-- nui.Popup replaces the manual nvim_open_win call and handles centering;
+-- no nui.Line / nui.Text (those caused colour bleed and scroll-drift).
 
 local nui_state = { popup = nil }
 
 function M.toggle_nui()
-  -- Close if already open
   if nui_state.popup then
     if nui_state.popup.winid and vim.api.nvim_win_is_valid(nui_state.popup.winid) then
       nui_state.popup:unmount()
@@ -250,87 +305,20 @@ function M.toggle_nui()
 
   local ok, Popup = pcall(require, 'nui.popup')
   if not ok then
-    vim.notify('nui.nvim not available — using fallback', vim.log.levels.WARN)
+    vim.notify('nui.nvim not available — falling back to M.toggle()', vim.log.levels.WARN)
     M.toggle()
     return
   end
-  local Line = require 'nui.line'
-  local Text = require 'nui.text'
 
-  vim.api.nvim_set_hl(0, 'CheatsheetTitle',   { link = 'Title',    default = true })
-  vim.api.nvim_set_hl(0, 'CheatsheetSep',     { link = 'Comment',  default = true })
-  vim.api.nvim_set_hl(0, 'CheatsheetSection', { link = 'Function', default = true })
-  vim.api.nvim_set_hl(0, 'CheatsheetKey',     { link = 'Keyword',  default = true })
-  vim.api.nvim_set_hl(0, 'CheatsheetDesc',    { link = 'Comment',  default = true })
+  local lo           = compute_layout()
+  local lines, hls   = build_content(lo)
+  set_highlights()
 
-  local SEP_W   = 3                       -- ' │ '
-  local WIN_W   = 2 * SEC_W + SEP_W      -- 91
-  local max_desc = SEC_W - 3 - KEY_W - 1 -- 24
-
-  -- ── Build nui.Line list ──────────────────────────────────────────────────
-
-  local nui_lines = {}
-
-  -- Header (centred, full-width highlight)
-  local hdr     = 'GRONK.NVIM  --  KEYBIND CHEATSHEET'
-  local hdr_pad = math.floor((WIN_W - #hdr) / 2)
-  local hdr_line = Line()
-  hdr_line:append(Text(string.rep(' ', hdr_pad),               'Normal'))
-  hdr_line:append(Text(hdr,                                    'CheatsheetTitle'))
-  hdr_line:append(Text(string.rep(' ', WIN_W - hdr_pad - #hdr),'Normal'))
-  table.insert(nui_lines, hdr_line)
-
-  -- Divider (─ is multi-byte; nui.Text handles display-width correctly)
-  local div_line = Line()
-  div_line:append(Text(string.rep('─', WIN_W), 'CheatsheetSep'))
-  table.insert(nui_lines, div_line)
-
-  -- Append one column's worth of content to an existing Line
-  local function append_col(line, row)
-    if not row or row.type == 'blank' then
-      line:append(Text(string.rep(' ', SEC_W), 'Normal'))
-    elseif row.type == 'title' then
-      line:append(Text(rpad('  ' .. row.text, SEC_W), 'CheatsheetSection'))
-    else -- item
-      line:append(Text('   ',                    'Normal'))
-      line:append(Text(rpad(row.key,  KEY_W),    'CheatsheetKey'))
-      line:append(Text(' ',                      'Normal'))
-      line:append(Text(rpad(row.desc, max_desc), 'CheatsheetDesc'))
-    end
-  end
-
-  -- Flatten a section into a list of simple row tables
-  local function sec_rows(sec)
-    if not sec then return {} end
-    local rows = {}
-    table.insert(rows, { type = 'title', text = sec.title })
-    for _, item in ipairs(sec.items) do
-      table.insert(rows, { type = 'item', key = item.key, desc = item.desc:sub(1, max_desc) })
-    end
-    table.insert(rows, { type = 'blank' })
-    return rows
-  end
-
-  for i = 1, #M.sections, 2 do
-    local left_rows  = sec_rows(M.sections[i])
-    local right_rows = sec_rows(M.sections[i + 1])
-    local pair_h = math.max(#left_rows, #right_rows)
-    for j = 1, pair_h do
-      local line = Line()
-      append_col(line, left_rows[j])
-      line:append(Text(' │ ', 'CheatsheetSep'))
-      append_col(line, right_rows[j])
-      table.insert(nui_lines, line)
-    end
-  end
-
-  -- ── Mount popup ──────────────────────────────────────────────────────────
-
-  local win_h = math.min(#nui_lines, vim.o.lines - 6)
+  local win_h = math.min(#lines, vim.o.lines - 6)
 
   local popup = Popup {
     position = '50%',
-    size     = { width = WIN_W, height = win_h },
+    size     = { width = lo.win_w, height = win_h },
     border   = {
       style = 'rounded',
       text  = { top = '  Cheatsheet ', top_align = 'center' },
@@ -342,16 +330,13 @@ function M.toggle_nui()
   popup:mount()
   nui_state.popup = popup
 
-  -- Pre-fill so Line:render has rows to write into
-  vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false,
-    vim.tbl_map(function() return '' end, nui_lines))
-
+  local buf = popup.bufnr
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   local ns = vim.api.nvim_create_namespace 'cheatsheet_nui'
-  for i, nline in ipairs(nui_lines) do
-    nline:render(popup.bufnr, ns, i)
+  for _, h in ipairs(hls) do
+    vim.api.nvim_buf_add_highlight(buf, ns, h[4], h[1], h[2], h[3])
   end
-
-  vim.bo[popup.bufnr].modifiable = false
+  vim.bo[buf].modifiable = false
 
   local function close()
     if nui_state.popup then
@@ -362,7 +347,6 @@ function M.toggle_nui()
     end
   end
 
-  -- Clear state if the window is closed via :q or wincmd
   popup:on(require('nui.utils.autocmd').event.BufWipeout, function()
     nui_state.popup = nil
   end)
@@ -372,8 +356,7 @@ function M.toggle_nui()
   end
 end
 
--- ── Telescope picker (M.picker) ───────────────────────────────────────────────
--- Fuzzy-search all keybinds by key, description or section.
+-- ── M.picker — Telescope fuzzy search (<leader>?) ────────────────────────────
 -- <Enter>  → notify with the binding as a reminder
 -- <C-f>    → close picker and open the full floating window instead
 
@@ -392,32 +375,23 @@ function M.picker(opts)
   local action_state  = require 'telescope.actions.state'
   local entry_display = require 'telescope.pickers.entry_display'
 
-  -- Flatten M.sections into a list of { section, key, desc }
   local entries = {}
   for _, section in ipairs(M.sections) do
     for _, item in ipairs(section.items) do
-      table.insert(entries, {
-        section = section.title,
-        key     = item.key,
-        desc    = item.desc,
-      })
+      table.insert(entries, { section = section.title, key = item.key, desc = item.desc })
     end
   end
 
   local displayer = entry_display.create {
     separator = '  ',
-    items = {
-      { width = 24 }, -- section
-      { width = 22 }, -- key
-      { remaining = true }, -- desc
-    },
+    items = { { width = 24 }, { width = 22 }, { remaining = true } },
   }
 
   local function make_display(entry)
     return displayer {
-      { entry.section, 'Comment'  },
-      { entry.key,     'Keyword'  },
-      { entry.desc,    'Normal'   },
+      { entry.section, 'Comment' },
+      { entry.key,     'Keyword' },
+      { entry.desc,    'Normal'  },
     }
   end
 
@@ -430,7 +404,6 @@ function M.picker(opts)
         return {
           value   = entry,
           display = make_display,
-          -- search across all three fields
           ordinal = entry.section .. ' ' .. entry.key .. ' ' .. entry.desc,
           section = entry.section,
           key     = entry.key,
@@ -440,25 +413,18 @@ function M.picker(opts)
     },
     sorter = tconf.generic_sorter(opts or {}),
     attach_mappings = function(prompt_bufnr, map)
-      -- Enter: close and surface the binding as a notification reminder
       actions.select_default:replace(function()
         local sel = action_state.get_selected_entry()
         actions.close(prompt_bufnr)
         if sel then
-          vim.notify(
-            '  ' .. sel.key,
-            vim.log.levels.INFO,
-            { title = sel.section .. '  ·  ' .. sel.desc }
-          )
+          vim.notify('  ' .. sel.key, vim.log.levels.INFO,
+            { title = sel.section .. '  ·  ' .. sel.desc })
         end
       end)
-
-      -- <C-f>: switch to the full floating window
       map({ 'i', 'n' }, '<C-f>', function()
         actions.close(prompt_bufnr)
         M.toggle()
       end)
-
       return true
     end,
   }):find()
