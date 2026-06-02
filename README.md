@@ -76,6 +76,41 @@ filename order. **To add one, drop in a new file** — no edit to the engine.
 
 ---
 
+## Trying this config side-by-side (`nvc`)
+
+Run this config without disturbing a default `nvim` setup, using `NVIM_APPNAME`
++ `XDG_CONFIG_HOME`. On Windows both are needed, because nvim defaults its
+config root to `%LOCALAPPDATA%`, not `~/.config`:
+
+```powershell
+# one-time: clone the dev branch to the config location
+git clone -b claude-dev https://github.com/TheGrinchOnMath/neovim `
+  "$env:USERPROFILE\.config\nvim-claude"
+```
+
+Add a launcher to your PowerShell profile (`notepad $PROFILE`):
+
+```powershell
+function nvc {
+    $env:NVIM_APPNAME    = 'nvim-claude'                 # → config dir leaf name
+    $env:XDG_CONFIG_HOME = "$env:USERPROFILE\.config"    # → root it under ~/.config
+    & nvim @args
+}
+```
+
+| stdpath | resolves to | isolated? |
+|---|---|---|
+| `config` | `~\.config\nvim-claude` | ✅ separate from default |
+| `data` / `state` | `%LOCALAPPDATA%\nvim-claude-data` | ✅ own lazy plugins, lock, shada |
+
+`nvc` opens the test config; plain `nvim` stays default. Reload the profile
+(`. $PROFILE`) after editing it.
+
+> **Native dependencies:** parser compilation (nvim-treesitter `main`) and
+> `telescope-fzf-native` require a **C compiler** (`gcc`/`clang`/`zig`) on PATH —
+> `make` and `node` alone are not enough. Without one, parsers re-download on
+> every startup and fzf-native falls back to the Lua sorter. See `manifests/`.
+
 ## Test / dev workflow
 
 Edit locally, then validate without a UI:
