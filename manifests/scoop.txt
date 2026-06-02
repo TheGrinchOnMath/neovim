@@ -1,41 +1,47 @@
-# Scoop packages — Windows
-# Install Scoop first: https://scoop.sh
-# Add buckets:
-#   scoop bucket add extras
-#   scoop bucket add nerd-fonts
-#   scoop bucket add versions
+# Scoop packages: Windows (human-readable mirror of scoopfile.json)
+#
+# Preferred: run the automated bootstrap instead of installing by hand —
+#   .\manifests\install.ps1            (primary config)
+#   .\manifests\install.ps1 -Target claude
+#
+# Or import the manifest directly:
+#   scoop import .\manifests\scoopfile.json
+#
+# Buckets required:
+#   scoop bucket add main          # default
+#   scoop bucket add extras        # windows-terminal
+#   scoop bucket add nerd-fonts    # JetBrainsMono-NF
 
 # Core editor
 neovim
 
-# Version control
+# Version control (also needed by lazy.nvim to clone plugins)
 git
+
+# Build tools (treesitter parsers + telescope-fzf-native)
+gcc                # mingw C compiler (main bucket)
+tree-sitter        # REQUIRED: nvim-treesitter 'main' runs `tree-sitter build`
+make               # telescope-fzf-native build
 
 # Search / file tools (used by telescope)
 ripgrep
 fd
 
-# Language runtimes
-go
-nodejs-lts
-python
-rustup                    # run `rustup component add rust-analyzer rustfmt clippy` after
+# Language runtimes (enable the Mason LSP servers / formatters)
+nodejs-lts         # bash-language-server, yaml-language-server, prettier
+python             # basedpyright, ruff
+go                 # goimports
+rustup             # idiomatic rust; run `rustup default stable` after
+                   #   (no MSVC linker? `rustup default stable-x86_64-pc-windows-gnu`)
 
-# Build tools (telescope-fzf-native)
-make
-gcc                       # from mingw bucket: scoop bucket add main; scoop install gcc
+# Terminal
+windows-terminal   # extras bucket
 
-# Font — JetBrains Mono Nerd Font
-# scoop bucket add nerd-fonts
-JetBrainsMono-NF
+# Font: JetBrains Mono Nerd Font (config sets have_nerd_font = true)
+JetBrainsMono-NF   # nerd-fonts bucket
 
-# Terminal utilities
-# tmux is available via WSL; on Windows native use Windows Terminal tabs
-# optional: oh-my-posh for a styled prompt
-oh-my-posh
-
-# ── Installed automatically by Mason inside neovim ──────────────────
-# LSP servers:   lua-language-server, rust-analyzer (via rustup), gopls,
+# ── Installed automatically by Mason inside neovim (see provision.lua) ──
+# LSP servers:   lua-language-server, rust-analyzer, gopls,
 #                basedpyright, bash-language-server, yaml-language-server,
 #                taplo, marksman, powershell-editor-services
 # Formatters:    stylua, ruff, goimports, shfmt, prettier

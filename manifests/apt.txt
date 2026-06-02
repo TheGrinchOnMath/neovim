@@ -2,6 +2,11 @@
 # Add the unstable PPA first for a recent neovim build:
 #   sudo add-apt-repository ppa:neovim-ppa/unstable
 #   sudo apt update
+#
+# Install everything — sed strips full-line and inline comments:
+#   sudo apt install -y $(sed 's/#.*//' manifests/apt.txt)
+# Then provision neovim:
+#   nvim --headless -c "luafile manifests/provision.lua" -c "qa!"
 
 # Core
 neovim
@@ -27,6 +32,9 @@ npm
 # Build tools (telescope-fzf-native, treesitter parsers)
 build-essential
 gcc
+# tree-sitter CLI — REQUIRED: nvim-treesitter 'main' runs `tree-sitter build`.
+# Not reliably packaged in apt; install via:
+#   cargo install tree-sitter-cli   — or   npm i -g tree-sitter-cli
 
 # Optional: tmux (for tmux workflow)
 tmux

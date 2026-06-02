@@ -1,4 +1,8 @@
 # Winget packages — Windows 10/11
+# NOTE: scoop is the preferred path on this project (see scoop.txt / install.ps1).
+# Win11 IoT LTSC often ships WITHOUT the App Installer (winget) and Store, so
+# winget may be unavailable there — use scoop. This list is a fallback reference.
+#
 # Run from an elevated PowerShell prompt:
 #   winget import --import-file winget.json
 # Or install individually:
@@ -28,6 +32,10 @@ LLVM.LLVM
 
 # make (GNU make via GnuWin32 or choco; or use the VS devenv)
 GnuWin32.Make
+
+# tree-sitter CLI — REQUIRED: nvim-treesitter 'main' runs `tree-sitter build`.
+# Not in winget; install via scoop (`scoop install tree-sitter`),
+# `cargo install tree-sitter-cli`, or `npm i -g tree-sitter-cli`.
 
 # Terminal / shell
 Microsoft.WindowsTerminal

@@ -1,0 +1,22 @@
+{
+  "buckets": [
+    { "Name": "main",       "Source": "https://github.com/ScoopInstaller/Main" },
+    { "Name": "extras",     "Source": "https://github.com/ScoopInstaller/Extras" },
+    { "Name": "nerd-fonts", "Source": "https://github.com/matthewjberger/scoop-nerd-fonts" }
+  ],
+  "apps": [
+    { "Source": "main",       "Name": "neovim" },
+    { "Source": "main",       "Name": "git" },
+    { "Source": "main",       "Name": "gcc" },
+    { "Source": "main",       "Name": "tree-sitter" },
+    { "Source": "main",       "Name": "make" },
+    { "Source": "main",       "Name": "ripgrep" },
+    { "Source": "main",       "Name": "fd" },
+    { "Source": "main",       "Name": "nodejs-lts" },
+    { "Source": "main",       "Name": "python" },
+    { "Source": "main",       "Name": "go" },
+    { "Source": "main",       "Name": "rustup" },
+    { "Source": "extras",     "Name": "windows-terminal" },
+    { "Source": "nerd-fonts", "Name": "JetBrainsMono-NF" }
+  ]
+}

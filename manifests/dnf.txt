@@ -1,5 +1,11 @@
-# DNF packages — Fedora / RHEL (with EPEL for RHEL)
+# DNF packages: Fedora / RHEL (with EPEL for RHEL)
 # For RHEL/CentOS enable EPEL first: sudo dnf install epel-release
+#
+# Install everything (dnf5) — sed strips full-line and inline comments:
+#   sudo dnf5 install $(sed 's/#.*//' manifests/dnf.txt)
+#   sudo dnf5 -y install $(sed 's/#.*//' manifests/dnf.txt)   # unattended
+# Then provision neovim:
+#   nvim --headless -c "luafile manifests/provision.lua" -c "qa!"
 
 # Core
 neovim
@@ -24,6 +30,8 @@ npm
 # Build tools (treesitter parsers, telescope-fzf-native)
 gcc
 g++
+tree-sitter-cli   # REQUIRED: nvim-treesitter 'main' runs `tree-sitter build`; gcc alone is not enough
+                  # If unavailable (older RHEL/EPEL): cargo install tree-sitter-cli  — or  npm i -g tree-sitter-cli
 
 # Optional: tmux
 tmux
@@ -37,6 +45,6 @@ tmux
 #                taplo, marksman, powershell-editor-services
 # Formatters:    stylua, ruff, goimports, shfmt, prettier
 #
-# Rust toolchain — install via rustup, not dnf:
+# Rust toolchain: install via rustup, not dnf:
 #   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 #   rustup component add rust-analyzer rustfmt clippy
