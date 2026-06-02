@@ -4,6 +4,7 @@
 -- highlighting and indent are handled by nvim's built-in treesitter engine.
 return {
   'nvim-treesitter/nvim-treesitter',
+  branch = 'main', -- the new API (require('nvim-treesitter').install) lives on main, not master
   lazy = false, -- plugin explicitly does not support lazy-loading
   build = ':TSUpdate',
   config = function()
