@@ -32,6 +32,17 @@ return {
       vim.o.foldenable = true
 
       require('ufo').setup()
+
+      -- Fold-peek on a non-conflicting key. The plugin's documented default
+      -- for peek is K, which collides with LSP hover (lua/plugins/nvim-lspconfig.lua).
+      -- Documented in the cheatsheet's Navigation section.
+      vim.keymap.set('n', '<leader>zp', function()
+        local winid = require('ufo').peekFoldedLinesUnderCursor()
+        if not winid then
+          -- not on a closed fold; fall back to LSP hover
+          vim.lsp.buf.hover()
+        end
+      end, { desc = 'Peek folded lines (ufo)' })
     end,
   },
 }

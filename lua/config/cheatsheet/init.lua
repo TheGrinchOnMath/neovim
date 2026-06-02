@@ -6,89 +6,33 @@
 local M = {}
 
 -- ── Section data ─────────────────────────────────────────────────────────────
--- Exposed so alpha.lua and the Telescope picker can consume it.
--- Keep in sync with actual plugin keymaps.
-M.sections = {
-  { title = 'Navigation', items = {
-    { key = 'Ctrl+h/j/k/l',   desc = 'Switch window' },
-    { key = ']b  [b',         desc = 'Next / prev buffer' },
-    { key = '<Space>t',       desc = 'Toggle file tree' },
-    { key = '<C-d>  <C-u>',  desc = 'Scroll half-page down/up' },
-    { key = 'gg  G',          desc = 'Top / bottom of file' },
-    { key = '<C-o>  <C-i>',  desc = 'Jump back / forward' },
-    { key = 'gd  K',          desc = 'Definition / hover docs' },
-    { key = ']d  [d',         desc = 'Next / prev diagnostic' },
-    { key = '*  #',           desc = 'Search word fwd / bwd' },
-    { key = 'za  zR  zM',    desc = 'Toggle/open/close folds' },
-  }},
-  { title = 'Search (Telescope)', items = {
-    { key = '<leader>sf',      desc = 'Find files' },
-    { key = '<leader>sg',      desc = 'Live grep' },
-    { key = '<leader>sw',      desc = 'Grep word under cursor' },
-    { key = '<leader>/',       desc = 'Fuzzy search in buffer' },
-    { key = '<leader><Space>', desc = 'Open buffers' },
-    { key = '<leader>sh',      desc = 'Help tags' },
-    { key = '<leader>sd',      desc = 'Search diagnostics' },
-    { key = '<leader>sr',      desc = 'Resume last search' },
-  }},
-  { title = 'Completion (blink)', items = {
-    { key = '<Tab>  <S-Tab>', desc = 'Select next / prev item' },
-    { key = '<CR>',           desc = 'Accept item' },
-    { key = '<C-space>',      desc = 'Open / close menu' },
-    { key = '<C-e>',          desc = 'Dismiss menu' },
-    { key = '<C-b>  <C-f>',  desc = 'Scroll docs up / down' },
-  }},
-  { title = 'Text Objects (mini.ai)', items = {
-    { key = 'i  a',            desc = 'Inside / around (prefix)' },
-    { key = '( [ { < " t b q', desc = 'Paren bracket quote tag' },
-    { key = 'in  il',          desc = 'Next / last of same type' },
-  }},
-  { title = 'Git', items = {
-    { key = ']h  [h',         desc = 'Next / prev hunk' },
-    { key = '<leader>hs',     desc = 'Stage hunk' },
-    { key = '<leader>hr',     desc = 'Reset hunk' },
-    { key = '<leader>hp',     desc = 'Preview hunk' },
-    { key = '<leader>hb',     desc = 'Blame line (full)' },
-    { key = '<leader>hd',     desc = 'Diff against index' },
-    { key = '<leader>tb',     desc = 'Toggle inline blame' },
-  }},
-  { title = 'Buffers', items = {
-    { key = '<leader>bx',     desc = 'Close buffer' },
-    { key = '<leader>bo',     desc = 'Close other buffers' },
-    { key = '<leader>bp',     desc = 'Pin buffer' },
-  }},
-  { title = 'Diagnostics / Trouble', items = {
-    { key = '<leader>xx',     desc = 'Workspace diagnostics' },
-    { key = '<leader>xX',     desc = 'Buffer diagnostics' },
-    { key = '<leader>xQ',     desc = 'Quickfix list' },
-    { key = '<leader>q',      desc = 'Diagnostic loclist' },
-  }},
-  { title = 'Debug (DAP)', items = {
-    { key = 'F5',             desc = 'Start / continue' },
-    { key = 'F10',            desc = 'Step over' },
-    { key = 'F11',            desc = 'Step into' },
-    { key = 'F3',             desc = 'Step out' },
-    { key = 'F7',             desc = 'Toggle DAP UI' },
-    { key = '<leader>b',      desc = 'Toggle breakpoint' },
-    { key = '<leader>B',      desc = 'Conditional breakpoint' },
-  }},
-  { title = 'Editing', items = {
-    { key = '<leader>f',        desc = 'Format buffer' },
-    { key = '<leader>rn',       desc = 'Rename symbol' },
-    { key = '<leader>ca',       desc = 'Code action' },
-    { key = 'gcc  gc (visual)', desc = 'Comment line / selection' },
-    { key = '<M-j>  <M-k>',    desc = 'Multi-cursor down / up' },
-    { key = '<leader>a',        desc = 'Multi-cursor to cword' },
-    { key = 'sa  sd  sr',       desc = 'Surround add/del/replace' },
-    { key = '<leader>fff',      desc = 'Toggle f-string (Python)' },
-  }},
-  { title = 'Misc', items = {
-    { key = '<leader>nm',      desc = 'Toggle minimap' },
-    { key = '<leader>nl / nh', desc = 'Noice last / history' },
-    { key = 'F1',              desc = 'Toggle cheatsheet window' },
-    { key = '<leader>??',      desc = 'Cheatsheet (nui popup)' },
-  }},
-}
+-- Each section is its own file under ./sections/*.lua, returning a table
+-- { title = '...', items = { { key = '...', desc = '...' }, ... } }.
+-- Files load in filename order (numeric prefixes set the display order), so
+-- adding a topic is a drop-in new file — no edit to this module.
+-- See doc/cheatsheet.md for the authoring guide.
+--
+-- M.sections stays the public contract consumed by M.toggle(), M.toggle_nui(),
+-- M.picker(), and alpha.lua.
+local function load_sections()
+  local sections = {}
+  local files = vim.api.nvim_get_runtime_file('lua/config/cheatsheet/sections/*.lua', true)
+  table.sort(files, function(a, b)
+    return vim.fn.fnamemodify(a, ':t') < vim.fn.fnamemodify(b, ':t')
+  end)
+  for _, file in ipairs(files) do
+    local mod = 'config.cheatsheet.sections.' .. vim.fn.fnamemodify(file, ':t:r')
+    local ok, sec = pcall(require, mod)
+    if ok and type(sec) == 'table' and sec.title and sec.items then
+      table.insert(sections, sec)
+    else
+      vim.notify('cheatsheet: skipped invalid section ' .. mod, vim.log.levels.WARN)
+    end
+  end
+  return sections
+end
+
+M.sections = load_sections()
 
 -- ── Layout ───────────────────────────────────────────────────────────────────
 -- Content-driven minimums (derived from actual section data above).
